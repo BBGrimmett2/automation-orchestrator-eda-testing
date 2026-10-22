@@ -16,6 +16,7 @@
         host: 0.0.0.0
         port: 5000
 
+  rules: 
   # Test 1: Disk alert triggers cleanup workflow
     - name: Disk Alert - Trigger Cleanup
       condition: event.payload.event_type == "disk_alert"
@@ -31,36 +32,3 @@
           poll_interval: 5
           post_facts: true
           post_events: false
-
-    # Test 2: Service issue triggers restart workflow
-    - name: Service Issue - Trigger Restart
-      condition: event.payload.event_type == "service_issue"
-      action:
-        run_ao_workflow:
-          workflow_name: "Service Restart"
-          project: "Operations"
-          payload:
-            service_name: "{{ event.payload.service_name }}"
-            vm_name: "{{ event.payload.vm_name }}"
-            status: "{{ event.payload.status }}"
-          timeout: 180
-          post_facts: true
-
-    # Test 3: Generic test event
-    - name: Test Event - Simple Workflow
-      condition: event.payload.event_type == "test_event"
-      action:
-        run_ao_workflow:
-          webhook_path: "test/simple-workflow"
-          payload:
-            message: "{{ event.payload.message | default('Test from EDA') }}"
-            timestamp: "{{ event.meta.received_at }}"
-          timeout: 60
-          post_facts: true
-
-    # Debug rule - catch all other events
-    - name: Debug all events
-      condition: event.payload is defined
-      action:
-        debug:
-          msg: "Received event: type={{ event.payload.event_type | default('unknown') }}, payload={{ event.payload }}"
