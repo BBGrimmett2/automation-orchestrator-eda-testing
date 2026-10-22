@@ -1,0 +1,86 @@
+---
+# Complete EDA → AO Workflow Integration Rulebook
+#
+# Prerequisites:
+# 1. AAP EDA Activation with "Red Hat Automation Orchestrator" credential attached
+# 2. AO workflow with webhook trigger enabled and published
+#
+# Test with curl:
+#   curl -X POST https://aap.shadowman.dev/eda-event-streams/api/eda/v1/external_event_stream/f58f05ae-0bf7-4b5a-8929-b17eaec45eb3/post/ \
+#     -H "Authorization: Bearer password" \
+#     -H "Content-Type: application/json" \
+#     -d '{"event_type": "disk_alert", "host": "test-server-01", "disk_usage": "95%"}'
+
+- name: AO Workflow Integration
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN | default('') }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    # Disk alert triggers AO workflow
+    - name: Disk Alert - Trigger AO Workflow
+      condition: event.payload.event_type == "disk_alert"
+      action:
+        run_ao_workflow:
+          # AO Credentials (from AAP credential extra_vars)
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          ao_verify_ssl: "{{ ao_verify_ssl | default('yes') }}"
+
+          # AO Workflow webhook UUID (from AO workflow trigger)
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+
+          # Payload sent to AO workflow
+          payload:
+            hostname: "{{ event.payload.host }}"
+            disk_usage: "{{ event.payload.disk_usage }}"
+            alert_source: "EDA Event Stream"
+            timestamp: "{{ event.meta.received_at }}"
+            event_uuid: "{{ event.meta.uuid }}"
+
+          # Execution settings
+          timeout: 300              # Wait up to 5 minutes
+          poll_interval: 5          # Check status every 5 seconds
+          treat_errors_as_failure: true
+
+          # Post results back to EDA
+          post_facts: true          # Post execution results as facts
+          post_events: false        # Don't post as events
+          ruleset: "AO Workflow Integration"  # Optional: specify ruleset
+
+    # Service issue triggers AO workflow
+    - name: Service Issue - Trigger AO Workflow
+      condition: event.payload.event_type == "service_issue"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            service_name: "{{ event.payload.service_name | default('unknown') }}"
+            vm_name: "{{ event.payload.vm_name | default('unknown') }}"
+            status: "{{ event.payload.status | default('down') }}"
+            alert_source: "EDA Event Stream"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 180
+          post_facts: true
+
+    # Generic catch-all for testing
+    - name: Test Event - Trigger AO Workflow
+      condition: event.payload.event_type == "test_event"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "{{ event.payload.message | default('Test from EDA') }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 60
+          post_facts: true

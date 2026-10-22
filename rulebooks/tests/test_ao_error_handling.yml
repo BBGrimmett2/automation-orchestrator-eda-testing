@@ -1,0 +1,114 @@
+---
+# Test: Error handling
+#
+# Purpose: Test error handling and failure scenarios
+# Expected: Graceful error handling and appropriate error reporting
+
+- name: Test Error Handling
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    - name: Test 1 - Treat errors as failure (default)
+      condition: event.payload.test_id == "errors_as_failure"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          treat_errors_as_failure: true
+          post_facts: true
+          payload:
+            message: "Testing error as failure"
+
+    - name: Test 2 - Allow errors (partial success)
+      condition: event.payload.test_id == "allow_errors"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          treat_errors_as_failure: false
+          post_facts: true
+          payload:
+            message: "Testing partial success acceptance"
+
+    - name: Test 3 - Invalid webhook path
+      condition: event.payload.test_id == "invalid_webhook"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "00000000-0000-0000-0000-000000000000"
+          timeout: 30
+          post_facts: true
+          payload:
+            message: "Testing invalid webhook handling"
+
+    - name: Test 4 - Non-existent workflow name
+      condition: event.payload.test_id == "invalid_workflow_name"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: "NonExistentWorkflow12345"
+          timeout: 30
+          post_facts: true
+          payload:
+            message: "Testing workflow not found handling"
+
+    - name: Test 5 - Timeout scenario
+      condition: event.payload.test_id == "timeout_test"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 5
+          poll_interval: 1
+          post_facts: true
+          payload:
+            message: "Testing timeout handling"
+
+    - name: Test 6 - Handle workflow failure
+      condition: >
+        event.ao_status is defined and
+        event.ao_status in ["failed", "cancelled"]
+      action:
+        debug:
+          msg:
+            - "AO Workflow failed or was cancelled"
+            - "Execution ID: {{ event.ao_execution_id }}"
+            - "Status: {{ event.ao_status }}"
+            - "Error details: {{ event.ao_error_details | default('N/A') }}"
+
+    - name: Test 7 - Handle partial success
+      condition: >
+        event.ao_status is defined and
+        event.ao_status == "completed_with_errors"
+      action:
+        debug:
+          msg:
+            - "AO Workflow completed with errors"
+            - "Execution ID: {{ event.ao_execution_id }}"
+            - "Error details: {{ event.ao_error_details | default('N/A') }}"
+
+    - name: Test 8 - Missing required parameters
+      condition: event.payload.test_id == "missing_params"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          # Intentionally missing webhook_path and workflow_name
+          payload:
+            message: "Testing missing parameter handling"

@@ -1,11 +1,14 @@
 ---
+# Minimal EDA → AO Workflow Integration Example
+#
+# This is the simplest working example.
+# Requires AAP credential "Red Hat Automation Orchestrator" attached to activation.
+
 - name: Minimal AO Integration
   hosts: localhost
   sources:
     - ansible.eda.pg_listener:
         dsn: "{{ PG_DSN }}"
-        channels:
-          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
 
   rules:
     - name: Trigger AO Workflow

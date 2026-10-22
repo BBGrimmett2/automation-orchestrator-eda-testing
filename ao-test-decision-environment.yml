@@ -1,0 +1,68 @@
+---
+# Decision Environment for Testing AO Workflow Integration
+# This DE includes the current ansible-rulebook code with run_ao_workflow action
+# Found at quay.io/bgrimmet/ansible-rulebook/ao-de
+
+version: 3
+
+images:
+  base_image:
+    name: "registry.access.redhat.com/ubi9/python-312-minimal:latest"
+
+options:
+  package_manager_path: /usr/bin/microdnf
+
+dependencies:
+  python_interpreter:
+    python_path: /usr/bin/python3.12
+
+  galaxy:
+    collections:
+      - name: ansible.eda
+        version: ">=2.12.0"
+
+  # Install ansible-core and ansible-runner from PyPI
+  ansible_core:
+    package_pip: ansible-core~=2.20.7
+
+  ansible_runner:
+    package_pip: ansible-runner
+
+  # Python packages for testing and runtime
+  python:
+    - pytest>=7.0.0
+    - pytest-asyncio>=0.21.0
+
+  # System dependencies
+  system:
+    - java-17-openjdk-headless [platform:rpm]
+    - python3.12-devel [compile platform:rpm]
+    - git-core [platform:rpm]
+
+# Build steps to include local ansible-rulebook code
+additional_build_steps:
+  prepend_final:
+    # Copy the local repository early so it's available
+    - COPY ansible-rulebook-src /tmp/ansible-rulebook-local
+
+  append_final:
+    # Install after all dependencies are in place
+    # Set version env var for setuptools-scm (git archive doesn't include .git)
+    - RUN SETUPTOOLS_SCM_PRETEND_VERSION_FOR_ANSIBLE_RULEBOOK=1.0.0+ao-test /usr/bin/python3.12 -m pip install --no-cache-dir /tmp/ansible-rulebook-local
+
+    # Add /usr/local to Python path so non-root user can access the package
+    - ENV PYTHONPATH="/usr/local/lib/python3.12/site-packages:/usr/local/lib64/python3.12/site-packages:${PYTHONPATH}"
+
+    # Verify the installation
+    - RUN /usr/bin/python3.12 -c "from ansible_rulebook.action.run_ao_workflow import RunAOWorkflow; print('✓ AO workflow action available')"
+
+    # Clean up to reduce image size
+    - RUN rm -rf /tmp/ansible-rulebook-local
+
+    # Create directory for custom rulebooks
+    - RUN mkdir -p /opt/ansible/rulebooks
+
+    # Set labels for the image
+    - LABEL version="1.0-ao-test"
+    - LABEL description="Decision Environment with AO Workflow Integration"
+    - LABEL maintainer="ansible-rulebook"

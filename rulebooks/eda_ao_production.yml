@@ -1,0 +1,307 @@
+---
+# Production EDA → AO Workflow Integration
+#
+# This rulebook demonstrates real-world use cases for triggering AO workflows
+# from EDA events via the pg_listener source.
+#
+# Setup:
+# 1. Attach "Red Hat Automation Orchestrator" credential to AAP EDA activation
+# 2. Configure AO workflow webhook_path below
+# 3. Customize event conditions and payloads for your workflows
+
+- name: Production EDA to AO Integration
+  hosts: localhost
+  sources:
+    # PostgreSQL Event Stream Listener
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    # ==========================================
+    # Infrastructure Alerts
+    # ==========================================
+
+    - name: Critical Disk Space Alert
+      condition: >
+        event.payload.event_type == "disk_alert" and
+        event.payload.disk_usage | int > 90
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          ao_verify_ssl: "{{ ao_verify_ssl | default('yes') }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "disk_critical"
+            hostname: "{{ event.payload.host }}"
+            disk_usage: "{{ event.payload.disk_usage }}"
+            mount_point: "{{ event.payload.mount_point | default('/') }}"
+            severity: "critical"
+            alert_source: "EDA Event Stream"
+            timestamp: "{{ event.meta.received_at }}"
+            event_id: "{{ event.meta.uuid }}"
+          timeout: 300
+          poll_interval: 5
+          post_facts: true
+          treat_errors_as_failure: true
+
+    - name: Warning Disk Space Alert
+      condition: >
+        event.payload.event_type == "disk_alert" and
+        event.payload.disk_usage | int >= 80 and
+        event.payload.disk_usage | int <= 90
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "disk_warning"
+            hostname: "{{ event.payload.host }}"
+            disk_usage: "{{ event.payload.disk_usage }}"
+            severity: "warning"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 180
+          post_facts: true
+
+    # ==========================================
+    # Service Health Monitoring
+    # ==========================================
+
+    - name: Service Down Alert
+      condition: >
+        event.payload.event_type == "service_status" and
+        event.payload.status == "down"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "service_down"
+            service_name: "{{ event.payload.service_name }}"
+            hostname: "{{ event.payload.host }}"
+            previous_status: "{{ event.payload.previous_status | default('unknown') }}"
+            downtime_start: "{{ event.payload.downtime_start | default(event.meta.received_at) }}"
+            severity: "critical"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 300
+          post_facts: true
+
+    - name: Service Degraded
+      condition: >
+        event.payload.event_type == "service_status" and
+        event.payload.status == "degraded"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "service_degraded"
+            service_name: "{{ event.payload.service_name }}"
+            hostname: "{{ event.payload.host }}"
+            response_time_ms: "{{ event.payload.response_time_ms | default(0) }}"
+            error_rate: "{{ event.payload.error_rate | default(0) }}"
+            severity: "warning"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 180
+          post_facts: true
+
+    # ==========================================
+    # VM Lifecycle Events
+    # ==========================================
+
+    - name: VM Creation Request
+      condition: event.payload.event_type == "vm_create"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            workflow_type: "vm_provisioning"
+            vm_name: "{{ event.payload.vm_name }}"
+            vm_template: "{{ event.payload.template | default('rhel9') }}"
+            cpu_count: "{{ event.payload.cpu | default(2) }}"
+            memory_gb: "{{ event.payload.memory | default(4) }}"
+            disk_gb: "{{ event.payload.disk | default(50) }}"
+            network: "{{ event.payload.network | default('default') }}"
+            requester: "{{ event.payload.requester | default('system') }}"
+            project: "{{ event.payload.project | default('default') }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 600
+          poll_interval: 10
+          post_facts: true
+
+    - name: VM Decommission Request
+      condition: event.payload.event_type == "vm_delete"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            workflow_type: "vm_decommission"
+            vm_name: "{{ event.payload.vm_name }}"
+            vm_id: "{{ event.payload.vm_id | default('') }}"
+            backup_required: "{{ event.payload.backup | default('yes') }}"
+            requester: "{{ event.payload.requester | default('system') }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 900
+          poll_interval: 10
+          post_facts: true
+
+    # ==========================================
+    # Security Events
+    # ==========================================
+
+    - name: Security Vulnerability Detected
+      condition: >
+        event.payload.event_type == "security_scan" and
+        event.payload.vulnerabilities_found | int > 0
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "security_vulnerability"
+            hostname: "{{ event.payload.host }}"
+            scan_type: "{{ event.payload.scan_type | default('full') }}"
+            vulnerabilities_count: "{{ event.payload.vulnerabilities_found }}"
+            critical_count: "{{ event.payload.critical | default(0) }}"
+            high_count: "{{ event.payload.high | default(0) }}"
+            medium_count: "{{ event.payload.medium | default(0) }}"
+            scan_id: "{{ event.payload.scan_id | default('') }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 300
+          post_facts: true
+
+    - name: Failed Login Attempts
+      condition: >
+        event.payload.event_type == "auth_failure" and
+        event.payload.attempts | int >= 5
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "security_auth_failure"
+            hostname: "{{ event.payload.host }}"
+            username: "{{ event.payload.username | default('unknown') }}"
+            source_ip: "{{ event.payload.source_ip | default('') }}"
+            attempts: "{{ event.payload.attempts }}"
+            time_window: "{{ event.payload.time_window | default('5m') }}"
+            severity: "high"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 180
+          post_facts: true
+
+    # ==========================================
+    # Application Events
+    # ==========================================
+
+    - name: Application Deployment
+      condition: event.payload.event_type == "app_deploy"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            workflow_type: "application_deployment"
+            app_name: "{{ event.payload.app_name }}"
+            version: "{{ event.payload.version }}"
+            environment: "{{ event.payload.environment | default('production') }}"
+            deployment_type: "{{ event.payload.deployment_type | default('rolling') }}"
+            git_commit: "{{ event.payload.git_commit | default('') }}"
+            requester: "{{ event.payload.requester | default('system') }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 900
+          poll_interval: 10
+          post_facts: true
+          treat_errors_as_failure: true
+
+    - name: Application Error Rate Spike
+      condition: >
+        event.payload.event_type == "app_metrics" and
+        event.payload.error_rate | float > 5.0
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            alert_type: "application_error_spike"
+            app_name: "{{ event.payload.app_name }}"
+            error_rate: "{{ event.payload.error_rate }}"
+            threshold: "5.0"
+            sample_errors: "{{ event.payload.sample_errors | default([]) }}"
+            severity: "critical"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 300
+          post_facts: true
+
+    # ==========================================
+    # Custom Webhook / Generic Events
+    # ==========================================
+
+    - name: Generic Webhook Event
+      condition: event.payload.event_type == "webhook"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            event_type: "{{ event.payload.event_type }}"
+            source: "{{ event.payload.source | default('eda') }}"
+            data: "{{ event.payload.data | default({}) }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 600
+          post_facts: true
+
+    # ==========================================
+    # Test / Debug Events
+    # ==========================================
+
+    - name: Test Event Handler
+      condition: event.payload.event_type == "test_event"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Test event from EDA"
+            test_data: "{{ event.payload | default({}) }}"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 60
+          poll_interval: 2
+          post_facts: true
+
+    # ==========================================
+    # Catch-All for Unmatched Events (Optional)
+    # ==========================================
+
+    - name: Log Unmatched Events
+      condition: event.payload.event_type is defined
+      action:
+        debug:
+          msg: "Received unmatched event: {{ event.payload.event_type }}"

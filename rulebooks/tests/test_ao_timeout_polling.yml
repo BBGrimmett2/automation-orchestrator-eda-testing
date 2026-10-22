@@ -1,0 +1,91 @@
+---
+# Test: Timeout and polling configurations
+#
+# Purpose: Test different timeout and poll_interval settings
+# Expected: Action waits appropriately for workflow completion
+
+- name: Test Timeout and Polling
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    - name: Test 1 - Short timeout for quick workflows
+      condition: event.payload.test_id == "short_timeout"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 60
+          poll_interval: 2
+          payload:
+            message: "Quick workflow test"
+
+    - name: Test 2 - Long timeout for slow workflows
+      condition: event.payload.test_id == "long_timeout"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 900
+          poll_interval: 10
+          payload:
+            message: "Long-running workflow test"
+
+    - name: Test 3 - Default timeout (600s)
+      condition: event.payload.test_id == "default_timeout"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Default timeout test"
+
+    - name: Test 4 - Fast polling for real-time monitoring
+      condition: event.payload.test_id == "fast_polling"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 300
+          poll_interval: 1
+          payload:
+            message: "Fast polling test"
+
+    - name: Test 5 - Slow polling for background jobs
+      condition: event.payload.test_id == "slow_polling"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 600
+          poll_interval: 30
+          payload:
+            message: "Slow polling test"
+
+    - name: Test 6 - Dynamic timeout from event
+      condition: event.payload.test_id == "dynamic_timeout"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: "{{ event.payload.timeout | default(300) | int }}"
+          poll_interval: "{{ event.payload.poll_interval | default(5) | int }}"
+          payload:
+            message: "Dynamic timeout configuration"
+            configured_timeout: "{{ event.payload.timeout }}"

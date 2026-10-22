@@ -1,0 +1,64 @@
+---
+# Test: Workflow name lookup
+#
+# Purpose: Test triggering AO workflows using workflow name instead of webhook_path
+# Expected: Action looks up webhook_path from workflow name and triggers successfully
+
+- name: Test Workflow Name Lookup
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    - name: Test 1 - Lookup by workflow name only
+      condition: event.payload.test_id == "workflow_name_lookup"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: "ao-eda-testing"
+          payload:
+            message: "Triggered by workflow name lookup"
+            test_id: "{{ event.payload.test_id }}"
+
+    - name: Test 2 - Lookup with project filter
+      condition: event.payload.test_id == "workflow_name_with_project"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: "ao-eda-testing"
+          project: "Default"
+          payload:
+            message: "Triggered with project filter"
+
+    - name: Test 3 - Dynamic workflow name from event
+      condition: event.payload.test_id == "dynamic_workflow_name"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: "{{ event.payload.workflow_name | default('ao-eda-testing') }}"
+          payload:
+            message: "Dynamic workflow selection"
+            selected_workflow: "{{ event.payload.workflow_name }}"
+
+    - name: Test 4 - Conditional workflow name selection
+      condition: event.payload.test_id == "conditional_workflow_name"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: >
+            {{ 'production-workflow' if event.payload.environment == 'prod'
+               else 'ao-eda-testing' }}
+          payload:
+            environment: "{{ event.payload.environment }}"
+            message: "Environment-based workflow selection"

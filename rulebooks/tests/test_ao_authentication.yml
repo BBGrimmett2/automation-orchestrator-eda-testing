@@ -1,0 +1,96 @@
+---
+# Test: Authentication methods
+#
+# Purpose: Test different authentication credential sources
+# Expected: OAuth2 authentication succeeds from various sources
+
+- name: Test Authentication Methods
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    - name: Test 1 - Credentials from AAP extra_vars
+      condition: event.payload.test_id == "auth_aap_credential"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          ao_verify_ssl: "{{ ao_verify_ssl | default('yes') }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing AAP credential authentication"
+            auth_method: "aap_credential"
+
+    - name: Test 2 - Credentials from environment variables
+      condition: event.payload.test_id == "auth_env_vars"
+      action:
+        run_ao_workflow:
+          # Credentials should come from EDA_AO_* environment variables
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing environment variable authentication"
+            auth_method: "env_vars"
+
+    - name: Test 3 - Mixed credentials (host from action, others from env)
+      condition: event.payload.test_id == "auth_mixed"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          # client_id and client_secret from environment
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing mixed credential sources"
+            auth_method: "mixed"
+
+    - name: Test 4 - SSL verification enabled
+      condition: event.payload.test_id == "auth_ssl_verify"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          ao_verify_ssl: "yes"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing SSL verification enabled"
+
+    - name: Test 5 - SSL verification disabled
+      condition: event.payload.test_id == "auth_no_ssl_verify"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          ao_verify_ssl: "no"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing SSL verification disabled"
+
+    - name: Test 6 - Custom CA bundle path
+      condition: event.payload.test_id == "auth_custom_ca"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          ao_verify_ssl: "/path/to/custom-ca-bundle.crt"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing custom CA bundle"
+
+    - name: Test 7 - OAuth2 token refresh (multiple calls)
+      condition: event.payload.test_id == "auth_token_refresh"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Testing OAuth2 token refresh"
+            call_number: "{{ event.payload.call_number | default(1) }}"

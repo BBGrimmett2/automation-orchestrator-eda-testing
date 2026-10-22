@@ -1,0 +1,89 @@
+---
+# Test: Facts and events posting
+#
+# Purpose: Test posting workflow results as facts or events
+# Expected: Results correctly posted to specified ruleset
+
+- name: Test Facts and Events Posting
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    - name: Test 1 - Post facts (default)
+      condition: event.payload.test_id == "post_facts_default"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          payload:
+            message: "Post facts test"
+
+    - name: Test 2 - Post events
+      condition: event.payload.test_id == "post_events"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: false
+          post_events: true
+          payload:
+            message: "Post events test"
+
+    - name: Test 3 - Post both facts and events
+      condition: event.payload.test_id == "post_both"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          post_events: true
+          payload:
+            message: "Post both test"
+
+    - name: Test 4 - Post to specific ruleset
+      condition: event.payload.test_id == "post_to_ruleset"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          ruleset: "Test Facts and Events Posting"
+          payload:
+            message: "Post to specific ruleset"
+
+    - name: Test 5 - Disable fact posting
+      condition: event.payload.test_id == "no_post"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: false
+          post_events: false
+          payload:
+            message: "Fire and forget test"
+
+    - name: Test 6 - React to posted facts
+      condition: event.ao_execution_id is defined and event.ao_status == "completed"
+      action:
+        debug:
+          msg:
+            - "AO Workflow completed successfully"
+            - "Execution ID: {{ event.ao_execution_id }}"
+            - "Workflow: {{ event.ao_workflow_name }}"
+            - "Duration: {{ event.ao_duration_seconds }} seconds"
+            - "Status: {{ event.ao_status }}"

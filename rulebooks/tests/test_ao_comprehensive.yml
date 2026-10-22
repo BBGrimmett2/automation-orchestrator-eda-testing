@@ -1,0 +1,236 @@
+---
+# Test: Comprehensive integration test
+#
+# Purpose: All-in-one test covering major features
+# Expected: Complete workflow from event to result posting
+
+- name: Comprehensive AO Integration Test
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    # ==========================================
+    # Basic Functionality Tests
+    # ==========================================
+
+    - name: Basic - Simple webhook trigger
+      condition: event.payload.test_category == "basic" and event.payload.test_case == "simple"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            test_category: "{{ event.payload.test_category }}"
+            test_case: "{{ event.payload.test_case }}"
+
+    - name: Basic - With dynamic payload
+      condition: event.payload.test_category == "basic" and event.payload.test_case == "dynamic_payload"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            test_data: "{{ event.payload }}"
+            metadata:
+              source: "EDA"
+              received_at: "{{ event.meta.received_at }}"
+              uuid: "{{ event.meta.uuid }}"
+
+    # ==========================================
+    # Workflow Lookup Tests
+    # ==========================================
+
+    - name: Lookup - By workflow name
+      condition: event.payload.test_category == "lookup" and event.payload.test_case == "by_name"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: "ao-eda-testing"
+          payload:
+            test_type: "workflow_name_lookup"
+
+    - name: Lookup - By name and project
+      condition: event.payload.test_category == "lookup" and event.payload.test_case == "by_name_project"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          workflow_name: "ao-eda-testing"
+          project: "Default"
+          payload:
+            test_type: "workflow_name_with_project"
+
+    # ==========================================
+    # Result Posting Tests
+    # ==========================================
+
+    - name: Results - Post facts only
+      condition: event.payload.test_category == "results" and event.payload.test_case == "facts_only"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          post_events: false
+          payload:
+            test_type: "facts_only"
+
+    - name: Results - Post events only
+      condition: event.payload.test_category == "results" and event.payload.test_case == "events_only"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: false
+          post_events: true
+          payload:
+            test_type: "events_only"
+
+    - name: Results - React to posted facts
+      condition: event.ao_execution_id is defined and event.ao_status == "completed"
+      action:
+        debug:
+          msg:
+            - "=== AO Workflow Result ==="
+            - "Execution ID: {{ event.ao_execution_id }}"
+            - "Workflow: {{ event.ao_workflow_name }}"
+            - "Status: {{ event.ao_status }}"
+            - "Duration: {{ event.ao_duration_seconds | default('N/A') }}s"
+            - "Webhook: {{ event.ao_webhook_path }}"
+
+    # ==========================================
+    # Timing Tests
+    # ==========================================
+
+    - name: Timing - Quick execution
+      condition: event.payload.test_category == "timing" and event.payload.test_case == "quick"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 60
+          poll_interval: 2
+          payload:
+            expected_duration: "quick"
+
+    - name: Timing - Long execution
+      condition: event.payload.test_category == "timing" and event.payload.test_case == "long"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: 900
+          poll_interval: 10
+          payload:
+            expected_duration: "long"
+
+    # ==========================================
+    # Conditional Logic Tests
+    # ==========================================
+
+    - name: Conditional - Route by severity
+      condition: >
+        event.payload.test_category == "conditional" and
+        event.payload.severity is defined
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          timeout: "{{ 300 if event.payload.severity == 'critical' else 180 }}"
+          payload:
+            severity: "{{ event.payload.severity }}"
+            priority: "{{ 'high' if event.payload.severity == 'critical' else 'normal' }}"
+
+    - name: Conditional - Route by environment
+      condition: >
+        event.payload.test_category == "conditional" and
+        event.payload.environment is defined
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          treat_errors_as_failure: "{{ true if event.payload.environment == 'production' else false }}"
+          payload:
+            environment: "{{ event.payload.environment }}"
+
+    # ==========================================
+    # Error Handling Tests
+    # ==========================================
+
+    - name: Error - Handle failure
+      condition: >
+        event.ao_status is defined and
+        event.ao_status == "failed"
+      action:
+        debug:
+          msg:
+            - "=== Workflow Failure Detected ==="
+            - "Execution: {{ event.ao_execution_id }}"
+            - "Error: {{ event.ao_error_details | default('Unknown') }}"
+
+    - name: Error - Handle partial success
+      condition: >
+        event.ao_status is defined and
+        event.ao_status == "completed_with_errors"
+      action:
+        debug:
+          msg:
+            - "=== Workflow Completed With Errors ==="
+            - "Execution: {{ event.ao_execution_id }}"
+            - "Errors: {{ event.ao_error_details | default('Unknown') }}"
+
+    # ==========================================
+    # Chaining Tests
+    # ==========================================
+
+    - name: Chain - Primary workflow
+      condition: event.payload.test_category == "chain" and event.payload.test_case == "primary"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          ruleset: "Comprehensive AO Integration Test"
+          payload:
+            chain_step: "primary"
+            chain_id: "{{ event.payload.chain_id }}"
+
+    - name: Chain - Secondary workflow on success
+      condition: >
+        event.ao_status == "completed" and
+        event.ao_workflow_name == "ao-eda-testing"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: false
+          payload:
+            chain_step: "secondary"
+            primary_execution: "{{ event.ao_execution_id }}"

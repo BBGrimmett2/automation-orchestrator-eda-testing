@@ -1,0 +1,94 @@
+---
+# Test: Workflow chaining
+#
+# Purpose: Test chaining multiple workflows based on execution results
+# Expected: Workflows trigger in sequence based on posted facts
+
+- name: Test Workflow Chaining
+  hosts: localhost
+  sources:
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_DSN }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
+
+  rules:
+    - name: Test 1 - Trigger primary workflow
+      condition: event.payload.test_id == "chain_primary"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          ruleset: "Test Workflow Chaining"
+          payload:
+            workflow_step: "primary"
+            test_id: "{{ event.payload.test_id }}"
+            chain_id: "{{ event.payload.chain_id | default('default') }}"
+
+    - name: Test 2 - Trigger secondary workflow on success
+      condition: >
+        event.ao_status == "completed" and
+        event.ao_workflow_name == "ao-eda-testing"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          ruleset: "Test Workflow Chaining"
+          payload:
+            workflow_step: "secondary"
+            primary_execution_id: "{{ event.ao_execution_id }}"
+            primary_duration: "{{ event.ao_duration_seconds }}"
+            message: "Triggered after primary workflow completed"
+
+    - name: Test 3 - Trigger cleanup on any completion
+      condition: >
+        event.ao_execution_id is defined and
+        event.ao_status in ["completed", "completed_with_errors"]
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: false
+          payload:
+            workflow_step: "cleanup"
+            parent_execution_id: "{{ event.ao_execution_id }}"
+            parent_status: "{{ event.ao_status }}"
+
+    - name: Test 4 - Parallel workflow execution
+      condition: event.payload.test_id == "parallel_workflows"
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          post_facts: true
+          timeout: 300
+          payload:
+            workflow_type: "{{ event.payload.workflow_type }}"
+            parallel_id: "{{ event.payload.parallel_id }}"
+            test_id: "{{ event.payload.test_id }}"
+
+    - name: Test 5 - Conditional chaining based on result
+      condition: >
+        event.ao_status == "completed" and
+        event.ao_duration_seconds is defined and
+        event.ao_duration_seconds > 10
+      action:
+        run_ao_workflow:
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          payload:
+            message: "Slow execution detected, triggering optimization"
+            slow_execution_id: "{{ event.ao_execution_id }}"
+            duration: "{{ event.ao_duration_seconds }}"
