@@ -1,20 +1,19 @@
 ---
 # Simple test rulebook for local AO workflow testing
 # Usage:
-#   1. Set environment variables (see .env.example)
+#   1. Set environment variables including PG_CONNECTION_STRING (see .env.example)
 #   2. Run: source .env && ansible-rulebook -i inventory.yml --rulebook test_ao_local.yml
 #
-# Test with curl:
-#   curl -X POST http://localhost:5000/endpoint \
-#     -H "Content-Type: application/json" \
-#     -d '{"alert_type": "test", "message": "Hello AO!"}'
+# This rulebook listens to PostgreSQL notifications from the AO event stream channel.
+# Send test events through the AO external event stream: BGrimmett - AO Testing
 
 - name: AO Workflow Test
   hosts: localhost
   sources:
-    - ansible.eda.webhook:
-        host: 0.0.0.0
-        port: 5000
+    - ansible.eda.pg_listener:
+        dsn: "{{ PG_CONNECTION_STRING }}"
+        channels:
+          - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
 
   rules: 
   # Test 1: Disk alert triggers cleanup workflow
