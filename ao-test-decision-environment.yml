@@ -1,7 +1,17 @@
 ---
 # Decision Environment for Testing AO Workflow Integration
 # This DE includes the current ansible-rulebook code with run_ao_workflow action
-# Found at quay.io/bgrimmet/ansible-rulebook/ao-de
+#
+# Multi-arch support: Builds for both amd64 (x86_64) and arm64 (aarch64)
+#
+# Build with:
+#   ansible-builder build -f ao-test-decision-environment.yml -t ao-test-de:latest --container-runtime podman
+#
+# Or use the build script:
+#   ./build_ao_de.sh
+#
+# For multi-arch manifest:
+#   DE_MULTIARCH=true ./build_ao_de.sh
 
 version: 3
 
