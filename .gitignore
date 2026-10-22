@@ -19,6 +19,9 @@
 .vault-password
 *.vault-pass
 
+# Vault file with actual secrets (use vault.yml.template as starter)
+vault.yml
+
 # Inventory caches (e.g. fact caching, dynamic inventory script caches)
 inventory.cache/
 *.inventory.cache

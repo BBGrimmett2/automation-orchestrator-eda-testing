@@ -1,0 +1,28 @@
+---
+# Ansible Vault Template — copy to vault.yml and fill in actual values
+#
+# To create your vault.yml from this template:
+#   cp vault.yml.template vault.yml
+#   # Edit vault.yml with your actual secrets
+#   ansible-vault encrypt vault.yml
+#
+# To edit in place after encryption:
+#   ansible-vault edit vault.yml
+#
+# To run the configure_aap playbook with vault:
+#   ansible-playbook playbooks/configure_aap.yml -e @vault.yml --ask-vault-pass
+#   ansible-playbook playbooks/configure_aap.yml -e @vault.yml --vault-password-file .vault_pass
+
+# --- AAP Configuration ---
+vault_aap_hostname: "aap.example.com"                    # Your AAP hostname
+vault_aap_token: "YOUR_AAP_TOKEN_HERE"                   # AAP personal access token or service account token
+
+# --- Automation Orchestrator Configuration ---
+vault_ao_host: "https://ao.example.com"                  # Base URL of Automation Orchestrator
+vault_ao_client_id: "YOUR_AO_CLIENT_ID"                  # OAuth2 Client ID
+vault_ao_client_secret: "YOUR_AO_CLIENT_SECRET"          # OAuth2 Client Secret
+
+# --- Automation Orchestrator Event Stream Token ---
+vault_ao_event_stream_token: "YOUR_EVENT_STREAM_TOKEN"   # Event stream authentication token
+
+# --- Other Project Secrets ---
