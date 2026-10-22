@@ -1,0 +1,44 @@
+{
+  "schema_version": "2.0.0",
+  "name": "ao-eda-testing",
+  "description": "Workflow to test events coming directly from EDA Controller",
+  "triggers": [
+    {
+      "id": "activity_b48143c8_12b9_4279_a2a3_32e18b9a7cce",
+      "type": "webhook_trigger",
+      "name": "Trigger",
+      "parameters": {
+        "webhook_path": "755d5f81-a574-4ea3-8461-1934cb4a5c51",
+        "authorized_service_account_ids": [
+          "8f1af39a-4edc-4254-b707-3ec802a32ad2"
+        ]
+      },
+      "position": {
+        "x": 18,
+        "y": -130
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "id": "activity_3ff44b8b_07bc_43a3_b1b6_7a3241d6ff5b",
+      "type": "http_request",
+      "name": "REST API",
+      "parameters": {
+        "url": "https://example.com",
+        "method": "GET"
+      },
+      "settings": {},
+      "position": {
+        "x": 645.5,
+        "y": -219.8046875
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "activity_b48143c8_12b9_4279_a2a3_32e18b9a7cce",
+      "to": "activity_3ff44b8b_07bc_43a3_b1b6_7a3241d6ff5b"
+    }
+  ]
+}
