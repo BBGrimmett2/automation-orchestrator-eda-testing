@@ -21,7 +21,8 @@
       condition: event.payload.event_type == "disk_alert"
       action:
         run_ao_workflow:
-          webhook_path: "ops/disk-cleanup"
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+          # https://automation-orchestrator-automation-orchestrator.apps.ocp.shadowman.dev/api/v1/webhooks/755d5f81-a574-4ea3-8461-1934cb4a5c51
           payload:
             hostname: "{{ event.payload.host }}"
             disk_usage: "{{ event.payload.disk_usage }}"
