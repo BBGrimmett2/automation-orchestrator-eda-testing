@@ -16,6 +16,14 @@
           - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
 
   rules: 
+    - name: Debug Credentials
+      condition: event.payload.event_type == "disk_alert"
+      action:
+        debug:
+          msg: |
+            EDA_AO_URL: {{ lookup('env', 'EDA_AO_URL') }}
+            EDA_AO_CLIENT_ID: {{ lookup('env', 'EDA_AO_CLIENT_ID') }}
+            Has client_secret: {{ lookup('env', 'EDA_AO_CLIENT_SECRET') | length > 0 }}
   # Test 1: Disk alert triggers cleanup workflow
     - name: Disk Alert - Trigger Cleanup
       condition: event.payload.event_type == "disk_alert"
