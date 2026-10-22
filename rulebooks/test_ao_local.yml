@@ -16,52 +16,51 @@
         host: 0.0.0.0
         port: 5000
 
-  rules:
-    # Test 1: Trigger workflow by webhook path (no lookup required)
-    - name: Test direct webhook path
-      condition: event.payload.alert_type == "test_webhook_path"
+  # Test 1: Disk alert triggers cleanup workflow
+    - name: Disk Alert - Trigger Cleanup
+      condition: event.payload.event_type == "disk_alert"
+      action:
+        run_ao_workflow:
+          webhook_path: "ops/disk-cleanup"
+          payload:
+            hostname: "{{ event.payload.host }}"
+            disk_usage: "{{ event.payload.disk_usage }}"
+            alert_source: "EDA Event Stream"
+            timestamp: "{{ event.meta.received_at }}"
+          timeout: 300
+          poll_interval: 5
+          post_facts: true
+          post_events: false
+
+    # Test 2: Service issue triggers restart workflow
+    - name: Service Issue - Trigger Restart
+      condition: event.payload.event_type == "service_issue"
+      action:
+        run_ao_workflow:
+          workflow_name: "Service Restart"
+          project: "Operations"
+          payload:
+            service_name: "{{ event.payload.service_name }}"
+            vm_name: "{{ event.payload.vm_name }}"
+            status: "{{ event.payload.status }}"
+          timeout: 180
+          post_facts: true
+
+    # Test 3: Generic test event
+    - name: Test Event - Simple Workflow
+      condition: event.payload.event_type == "test_event"
       action:
         run_ao_workflow:
           webhook_path: "test/simple-workflow"
           payload:
-            message: "{{ event.payload.message }}"
-            timestamp: "{{ event.payload.timestamp | default('now') }}"
-          timeout: 60
-          poll_interval: 2
-          post_facts: true
-          post_events: false
-
-    # Test 2: Lookup workflow by name
-    - name: Test workflow lookup by name
-      condition: event.payload.alert_type == "test_workflow_name"
-      action:
-        run_ao_workflow:
-          workflow_name: "Test Workflow"
-          project: "Test Project"
-          payload:
-            test_data: "{{ event.payload.message }}"
+            message: "{{ event.payload.message | default('Test from EDA') }}"
+            timestamp: "{{ event.meta.received_at }}"
           timeout: 60
           post_facts: true
-
-    # Test 3: Test with minimal configuration
-    - name: Test minimal configuration
-      condition: event.payload.alert_type == "test_minimal"
-      action:
-        run_ao_workflow:
-          webhook_path: "test/minimal"
-          post_facts: false
-
-    # Test 4: Test error handling
-    - name: Test nonexistent workflow
-      condition: event.payload.alert_type == "test_error"
-      action:
-        run_ao_workflow:
-          workflow_name: "Nonexistent Workflow"
-          post_facts: false
 
     # Debug rule - catch all other events
     - name: Debug all events
-      condition: event.payload.alert_type is defined
+      condition: event.payload is defined
       action:
         debug:
-          msg: "Received event: {{ event }}"
+          msg: "Received event: type={{ event.payload.event_type | default('unknown') }}, payload={{ event.payload }}"
