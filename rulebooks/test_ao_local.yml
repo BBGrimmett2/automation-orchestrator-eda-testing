@@ -1,0 +1,67 @@
+---
+# Simple test rulebook for local AO workflow testing
+# Usage:
+#   1. Set environment variables (see .env.example)
+#   2. Run: source .env && ansible-rulebook -i inventory.yml --rulebook test_ao_local.yml
+#
+# Test with curl:
+#   curl -X POST http://localhost:5000/endpoint \
+#     -H "Content-Type: application/json" \
+#     -d '{"alert_type": "test", "message": "Hello AO!"}'
+
+- name: AO Workflow Test
+  hosts: localhost
+  sources:
+    - ansible.eda.webhook:
+        host: 0.0.0.0
+        port: 5000
+
+  rules:
+    # Test 1: Trigger workflow by webhook path (no lookup required)
+    - name: Test direct webhook path
+      condition: event.payload.alert_type == "test_webhook_path"
+      action:
+        run_ao_workflow:
+          webhook_path: "test/simple-workflow"
+          payload:
+            message: "{{ event.payload.message }}"
+            timestamp: "{{ event.payload.timestamp | default('now') }}"
+          timeout: 60
+          poll_interval: 2
+          post_facts: true
+          post_events: false
+
+    # Test 2: Lookup workflow by name
+    - name: Test workflow lookup by name
+      condition: event.payload.alert_type == "test_workflow_name"
+      action:
+        run_ao_workflow:
+          workflow_name: "Test Workflow"
+          project: "Test Project"
+          payload:
+            test_data: "{{ event.payload.message }}"
+          timeout: 60
+          post_facts: true
+
+    # Test 3: Test with minimal configuration
+    - name: Test minimal configuration
+      condition: event.payload.alert_type == "test_minimal"
+      action:
+        run_ao_workflow:
+          webhook_path: "test/minimal"
+          post_facts: false
+
+    # Test 4: Test error handling
+    - name: Test nonexistent workflow
+      condition: event.payload.alert_type == "test_error"
+      action:
+        run_ao_workflow:
+          workflow_name: "Nonexistent Workflow"
+          post_facts: false
+
+    # Debug rule - catch all other events
+    - name: Debug all events
+      condition: event.payload.alert_type is defined
+      action:
+        debug:
+          msg: "Received event: {{ event }}"
