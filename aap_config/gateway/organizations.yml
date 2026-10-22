@@ -1,0 +1,4 @@
+---
+aap_organizations:
+- name: AO Integration Organization
+  description: Testing of the AO <> EDA Action Integration

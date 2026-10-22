@@ -1,0 +1,9 @@
+---
+# EDA Decision Environments Configuration
+eda_decision_environments:
+  - name: "AO Integration Decision Environment"
+    organization: "AO Integration Organization"
+    description: "Decision environment with ansible-rulebook build including run_ao_workflow action"
+    image_url: "quay.io/bgrimmet/ansible-rulebook/ao-de:latest"
+    credential: null
+    pull_policy: "always"

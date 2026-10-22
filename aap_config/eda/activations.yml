@@ -1,0 +1,37 @@
+---
+# EDA Rulebook Activations Configuration
+eda_rulebook_activations:
+  - name: "AO EDA - Minimal Integration Activation"
+    organization: "AO Integration Organization"
+    description: "Minimal EDA to AO workflow integration using pg_listener"
+    project: "EDA AO Integration Project"
+    rulebook: "ao_minimal_example.yml"
+    decision_environment: "AO Integration Decision Environment"
+    enabled: true
+    restart_policy: "never"
+    log_level: "debug"
+
+    # Credentials needed by the rulebook
+    eda_credentials:
+      - "Red Hat Automation Orchestrator"
+
+    # Extra vars for the rulebook (non-sensitive values)
+    extra_var: |
+      ---
+      # Webhook path is not sensitive, can be defined here
+      # or passed through the rulebook directly
+
+    # Activation settings
+    awx_token: null
+
+    # Event stream configuration - maps external event stream to rulebook sources
+    # The event stream acts as a webhook endpoint that forwards events to the activation
+    # Use either source_name OR source_index (mutually exclusive)
+    event_streams:
+      - event_stream: "Automation Orchestrator Event Stream"
+        # Option 1: Use source_index to reference first source (index 0)
+        source_index: 0
+        # Option 2: Use source_name to reference by internal name (e.g., "__SOURCE_1")
+        # source_name: "__SOURCE_1"
+
+    k8s_service_name: null

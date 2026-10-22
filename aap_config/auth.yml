@@ -1,0 +1,4 @@
+---
+aap_hostname: "{{ vault_aap_hostname }}"
+aap_token: "{{ vault_aap_token }}"
+aap_validate_certs: true

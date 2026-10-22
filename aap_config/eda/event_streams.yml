@@ -1,0 +1,9 @@
+---
+# EDA Event Streams Configuration
+eda_event_streams:
+  - name: "Automation Orchestrator Event Stream"
+    organization: "AO Integration Organization"
+    description: "Event stream from Automation Orchestrator job events"
+    credential_name: "Automation Orchestrator Event Stream Token"
+    event_stream_type: "token"
+    forward_events: true

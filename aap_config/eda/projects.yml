@@ -1,0 +1,11 @@
+---
+# EDA Projects Configuration
+eda_projects:
+  - name: "EDA AO Integration Project"
+    organization: "AO Integration Organization"
+    description: "Event-Driven Ansible to Automation Orchestrator integration rulebooks"
+    scm_type: git
+    scm_url: "https://github.com/BBGrimmett2/automation-orchestrator-eda-testing.git"
+    scm_branch: main
+    scm_update_on_launch: true
+    verify_ssl: true
