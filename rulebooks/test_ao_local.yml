@@ -39,3 +39,6 @@
           poll_interval: 5
           post_facts: true
           post_events: false
+          ao_host: "{{ ao_url }}"
+          ao_client_id: "{{ ao_client_id }}"
+          ao_client_secret: "{{ ao_client_secret }}"
