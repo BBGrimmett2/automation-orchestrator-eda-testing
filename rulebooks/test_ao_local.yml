@@ -1,38 +1,26 @@
 ---
-# Simple test rulebook for local AO workflow testing
-# Usage:
-#   1. Set environment variables including PG_CONNECTION_STRING (see .env.example)
-#   2. Run: source .env && ansible-rulebook -i inventory.yml --rulebook test_ao_local.yml
-#
-# This rulebook listens to PostgreSQL notifications from the AO event stream channel.
-# Send test events through the AO external event stream: BGrimmett - AO Testing
-
-- name: AO Workflow Test
+- name: Minimal AO Integration
   hosts: localhost
   sources:
     - ansible.eda.pg_listener:
-        dsn: "{{ PG_CONNECTION_STRING }}"
+        dsn: "{{ PG_DSN }}"
         channels:
           - eda_event_stream_f58f05ae_0bf7_4b5a_8929_b17eaec45eb3
 
-  rules: 
-  # Test 1: Disk alert triggers cleanup workflow
-    - name: Disk Alert - Trigger Cleanup
+  rules:
+    - name: Trigger AO Workflow
       condition: event.payload.event_type == "disk_alert"
       action:
         run_ao_workflow:
-          webhook_path: "eda-events"
-          # https://automation-orchestrator-automation-orchestrator.apps.ocp.shadowman.dev/api/v1/webhooks/755d5f81-a574-4ea3-8461-1934cb4a5c51
-          # https://automation-orchestrator-automation-orchestrator.apps.ocp.shadowman.dev/api/v1/webhooks/eda/755d5f81-a574-4ea3-8461-1934cb4a5c51'
-          payload:
-            hostname: "{{ event.payload.host }}"
-            disk_usage: "{{ event.payload.disk_usage }}"
-            alert_source: "EDA Event Stream"
-            timestamp: "{{ event.meta.received_at }}"
-          timeout: 300
-          poll_interval: 5
-          post_facts: true
-          post_events: false
+          # Credentials from AAP (injected as extra_vars)
           ao_host: "{{ ao_url }}"
           ao_client_id: "{{ ao_client_id }}"
           ao_client_secret: "{{ ao_client_secret }}"
+
+          # Your AO workflow webhook UUID
+          webhook_path: "755d5f81-a574-4ea3-8461-1934cb4a5c51"
+
+          # Data sent to the workflow
+          payload:
+            hostname: "{{ event.payload.host }}"
+            disk_usage: "{{ event.payload.disk_usage }}"
